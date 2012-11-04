@@ -39,7 +39,7 @@ void display_usage(char * argv0)
 	};
 	struct option *opt;
 	int i, n = sizeof(longOpts) / sizeof(struct option) - 1;
-		
+
 	printf("Usage: %s [options]\n", argv0);
 	printf("Options:\n");
 	for(i = 0; i < n; i++){
@@ -67,13 +67,13 @@ void parse_args(int argc, char ** argv)
 {
 	int longIndex, opt;
 	int tmp;
-	
+
 	globalArgs.kick_buffer_limit = 1048576;
 	globalArgs.listener_port = 1984;
 	globalArgs.players = 5;
 	globalArgs.connected_players = 0;
 	globalArgs.verbose = 0;
-	
+
 	while( (opt = getopt_long( argc, argv, optString, longOpts, &longIndex )) != -1){
 		switch(opt){
 			case 'n':

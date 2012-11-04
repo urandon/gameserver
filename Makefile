@@ -1,34 +1,43 @@
 #
 # Makefile
 #
-SOURCES.c= server.c settings.c player.c game.c
-INCLUDES=  server.h settings.h player.h game.h
-CLAGS=
-SLIBS=
-PROGRAM= server
+SOURCES.c = server.c settings.c player.c game.c
+INCLUDES  =  server.h settings.h player.h game.h
+CFLAGS = -Wall
+C_DEBUG_FLAGS = -g3 -DDEBUG_ALL
+C_RELEASE_FLAGS = -O3
+CC = gcc
+PROGRAM = server
 
-OBJECTS= $(SOURCES.c:.c=.o)
+OBJECTS = $(SOURCES.c:.c=.o)
 
+.PHONY = all clean install
 .KEEP_STATE:
 
-debug := CFLAGS= -g
+.PHONY: debug  
+debug: CFLAGS+=$(C_DEBUG_FLAGS)  
+debug: server
 
-all debug: $(PROGRAM)
+.PHONY: release  
+release: CFLAGS+=$(C_RELEASE_FLAGS)
+release: server
+
+all: $(PROGRAM)
 
 server: $(INCLUDES) $(OBJECTS)
-	gcc $(OBJECTS) $(SLIBS) -o server
+	$(CC) $(CFLAGS) $(OBJECTS) $(SLIBS) -o server
 
 server.o: server.c server.h settings.h game.h
-	gcc -Wall server.c -c
+	$(CC) $(CFLAGS) server.c -c
 
 settings.o: settings.c settings.h
-	gcc -Wall settings.c -c
+	$(CC) $(CFLAGS) settings.c -c
 	
 player.o: player.c player.h game.h settings.h
-	gcc -Wall player.c -c
+	$(CC) $(CFLAGS) player.c -c
 	
 game.o: game.c game.h settings.h server.h
-	gcc -Wall game.c -c
+	$(CC) $(CFLAGS) game.c -c
 
 clean:
 	rm -rf $(PROGRAM) $(OBJECTS)

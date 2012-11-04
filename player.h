@@ -1,5 +1,5 @@
-#ifndef PLAYER_H
-#define PLAYER_H
+#ifndef PLAYER_H_
+#define PLAYER_H_
 
 /**
  * В данном модуле описывается игрок как сетевая сущность,
@@ -26,13 +26,13 @@ struct message_queue{
 struct player{
 	int id;
 	int descriptor;
-	
+
 	char * name;
-	
+
 	struct message_queue * messages;
 	char * buffer;
 	int buffer_allocated, buffer_size;
-	
+
 	p_game_instance data;
 };
 
@@ -54,7 +54,7 @@ void change_name(p_player p, char * new_name);
 p_player get_player(p_players_storage storage, int id);
 p_player get_player_by_desc(p_players_storage storage, int descriptor);
 p_players_storage add_player(p_players_storage storage, p_player p);
-p_players_storage remove_player(p_players_storage storage, int descriptor);
+p_players_storage remove_player(p_players_storage storage, int id);
 
 /*==================== buffer manipulation ===========================*/
 

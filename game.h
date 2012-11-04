@@ -1,9 +1,9 @@
-#ifndef GAME_H
-#define GAME_H
+#ifndef GAME_H_
+#define GAME_H_
 
 struct game_instance{
 	int id;
-	
+
 	int resource;
 	int production;
 	int factory;

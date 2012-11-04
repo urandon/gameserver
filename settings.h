@@ -1,5 +1,16 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#ifndef SETTINGS_H_
+#define SETTINGS_H_
+
+#define DEBUG
+
+#ifdef DEBUG
+#define VRB(V,A) if(globalArgs.verbose >= (V)){ A; }
+#define DBG ;fprintf(stderr, "google.com\n");
+#else
+#define VRB(V,A)
+#define DBG
+#endif
+
 
 struct globalArgs_t {
 	int players;
