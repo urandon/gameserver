@@ -1,8 +1,8 @@
 #
 # Makefile
 #
-SOURCES.c = server.c settings.c player.c game.c
-INCLUDES  =  server.h settings.h player.h game.h
+SOURCES.c = server.c settings.c player.c game.c sort.c tokens.c
+INCLUDES  =  $(SOURCES.c:.c=.h)
 CFLAGS = -Wall
 C_DEBUG_FLAGS = -g3 -DDEBUG_ALL
 C_RELEASE_FLAGS = -O3
@@ -33,11 +33,17 @@ server.o: server.c server.h settings.h game.h
 settings.o: settings.c settings.h
 	$(CC) $(CFLAGS) settings.c -c
 	
-player.o: player.c player.h game.h settings.h
+player.o: player.c player.h settings.h
 	$(CC) $(CFLAGS) player.c -c
 	
-game.o: game.c game.h settings.h server.h
+game.o: game.c game.h settings.h server.h sort.h tokens.h
 	$(CC) $(CFLAGS) game.c -c
+
+sort.o: sort.c sort.h
+	$(CC) $(CFLAGS) sort.c -c
+
+tokens.o: tokens.c tokens.h
+	$(CC) $(CFLAGS) tokens.c -c
 
 clean:
 	rm -rf $(PROGRAM) $(OBJECTS)

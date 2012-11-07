@@ -9,6 +9,8 @@
  */
 
 
+#include "game.h"
+
 /*=================== single player manipulation =====================*/
 
 struct message_list{
@@ -34,36 +36,36 @@ struct player{
 
 typedef struct player  *p_player;
 
-
 struct players_storage{
-	p_player * players;
-	int * descs;
-	int capacity;
-	int connected;
-	int current_id;
+	p_player node;
+	struct players_storage * next, * prev;
 };
 
 typedef struct players_storage  *p_players_storage;
 
 
+p_player new_player(int descriptor);
+void destroy_player(p_player p);
+
 void change_name(p_player p, char * new_name);
-p_players_storage new_storage(int capacity);
-int new_player(p_players_storage storage, int descriptor);
+
 p_player get_player(p_players_storage storage, int id);
 p_player get_player_by_desc(p_players_storage storage, int descriptor);
-void remove_player(p_players_storage storage, int id);
+p_players_storage add_player(p_players_storage storage, p_player p);
+p_players_storage remove_player(p_players_storage storage, int id);
 
 /*==================== buffer manipulation ===========================*/
 
-/* returns the number of new incoming messages
+/* returns the number of new incomming messages
  * or -1 if the player is flooder */
-int push_buffer(p_players_storage storage, int id, char * buffer, int buffer_len);
-char * get_message(p_players_storage storage, int id);
+int push_buffer(p_player p, char * buffer, int buffer_len);
+char * get_message(p_player p);
 
-/*==================== multiplayer manipulation =====================*/
+/*==================== multi player manipulation =====================*/
 
-int id2desc(p_players_storage storage, int id);
-int desc2id(p_players_storage storage,  int descriptor);
+void set_num_of_players(int n);
+int id2desc(int id);
+int desc2id(int descriptor);
 
 void destroy_storage(p_players_storage storage);
 

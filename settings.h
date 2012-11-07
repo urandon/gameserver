@@ -1,9 +1,8 @@
 #ifndef SETTINGS_H_
 #define SETTINGS_H_
 
-#define DEBUG
-
 #ifdef DEBUG
+#include <stdio.h>
 #define VRB(V,A) if(globalArgs.verbose >= (V)){ A; }
 #define DBG ;fprintf(stderr, "google.com\n");
 #else

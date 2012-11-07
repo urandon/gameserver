@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include "player.h"
 #include "settings.h"
 
@@ -10,62 +9,39 @@
 extern struct globalArgs_t globalArgs;
 
 
+static int *descs = NULL;
+static void init();
 static char * default_name = "Anonymous";
 
 /*===================== single player methods ========================*/
 
-/*============ Constructor & desctructor */
-p_players_storage new_storage(int capacity)
+/*============ constuctor & desctructor */
+
+static int next_id()
 {
-	p_players_storage storage;
-	int i;
-
-	storage = (p_players_storage) malloc (sizeof(*storage));
-	storage->current_id = 0;
-	storage->connected = 0;
-	storage->capacity = capacity;
-	storage->descs = (int *) malloc (capacity * sizeof(int));
-	storage->players = (typeof(storage->players)) \
-			malloc (capacity * sizeof(* storage->players));
-	for(i = 0; i < capacity; i++){
-		storage->descs[i] = -1;
-		storage->players[i] = NULL;
-	}
-
-	return storage;
-}
-
-static int next_id(p_players_storage storage)
-{
-	if(storage->connected >= storage->capacity){
-		return -1;
-	}
-	while(storage->descs[storage->current_id] != -1){
-		if(storage->current_id >= globalArgs.players){
-			storage->current_id = 0;
+	static int current_id = 0;
+	while(descs[current_id] != 0){
+		if(current_id >= globalArgs.players){
+			current_id = 0;
 		} else {
-			storage->current_id++;
+			current_id++;
 		}
 	}
-	return storage->current_id;
+	return current_id;
 }
 
-
-/* returns -1 in case of error */
-int new_player(p_players_storage storage, int descriptor)
+p_player new_player(int descriptor)
 {
 	p_player p;
 
+	init();
 	VRB(4, printf("player::new_player(desc = %d)\n", descriptor));
 
 	p = (p_player) malloc (sizeof(*p));
 
-	if((p->id = next_id(storage)) == -1){
-		free(p);
-		return -1;
-	}
+	p->id = next_id();
 	p->descriptor = descriptor;
-	storage->descs[p->id] = p->descriptor;
+	descs[p->id] = p->descriptor;
 	p->name = NULL;
 	change_name(p, default_name);
 
@@ -77,13 +53,7 @@ int new_player(p_players_storage storage, int descriptor)
 	p->buffer_size = 0;
 	p->buffer = (char *) malloc (p->buffer_allocated * sizeof(char));
 
-
-	/* adding to storage */
-	storage->connected++;
-	storage->players[p->id] = p;
-	storage->descs[p->id] = p->descriptor;
-
-	return p->id;
+	return p;
 }
 
 void change_name(p_player p, char * new_name)
@@ -116,11 +86,12 @@ static void destroy_messages(p_player p)
 	}
 }
 
-static void destroy_player(p_player p)
+void destroy_player(p_player p)
 {
 	if(p != NULL){
 		VRB(4, printf("player::destroy_player(id = %d)\n", p->id));
 
+		descs[p->id] = 0;
 		free(p->name);
 		free(p->buffer);
 		destroy_messages(p);
@@ -131,29 +102,30 @@ static void destroy_player(p_player p)
 
 /*============ search engine */
 
-/* returns -1 in case if there are no player with this id */
-static int look4player(p_players_storage storage, int id)
+static p_players_storage look4player(p_players_storage storage, int id)
 {
+	p_players_storage s = storage;
 	VRB(4, printf("player::look4player(id = %d)\n", id));
 
-	if(id >= storage->capacity || id < 0){
-		return -1;
+	while(s != NULL){
+		if(s->node->id == id){
+			return s;
+		}
+		s = s->next;
 	}
 
-	if(storage->players[id] == NULL){
-		return -1;
-	}
-
-	return id;
+	return NULL;
 }
 
 p_player get_player(p_players_storage storage, int id)
 {
-	int pos;
+	p_players_storage p;
 
 	VRB(4, printf("player::get_player(id = %d)\n", id));
-	if( (pos = look4player(storage, id)) != -1 ){
-		return storage->players[pos];
+	p = look4player(storage, id);
+
+	if(p != NULL){
+		return p->node;
 	}
 
 	return NULL;
@@ -163,68 +135,121 @@ p_player get_player_by_desc(p_players_storage storage, int descriptor)
 {
 	VRB(4, printf("player::get_player_by_desc(desc = %d)\n", descriptor));
 
-	return get_player(storage, desc2id(storage, descriptor));
+	return get_player(storage, desc2id(descriptor));
 }
 
 /*============ storage manipulation */
 
-void remove_player(p_players_storage storage, int id)
+p_players_storage add_player(p_players_storage storage, p_player p)
 {
-	VRB(4, printf("player::remove_player(id = %d)\n", id));
-	if(id >= storage->capacity){
-		VRB(1,fprintf(stderr, "The id=%d more than storage capasity =%d",
-				id, storage->capacity));
-		exit(-1);
+	p_players_storage s;
+
+	if(p ==  NULL){
+		VRB(4, printf("player::add_player(NULL)\n"));
+		return storage;
 	}
-	destroy_player(storage->players[id]);
-	storage->connected--;
-	storage->descs[id] = -1;
+
+	VRB(4, printf("player::add_player(id = %d)\n", p->id));
+
+	s = (p_players_storage) malloc (sizeof(*s));
+	s->next = storage;
+	if(storage != NULL){
+		storage->prev = s;
+	}
+	s->node = p;
+
+	init();
+	descs[p->id] = p->descriptor;
+
+	return s;
 }
+
+p_players_storage remove_player(p_players_storage storage, int id)
+{
+	p_players_storage p, l, r;
+
+	VRB(4, printf("player::remove_player(id = %d)\n", id));
+
+	p = look4player(storage, id);
+	if(p == NULL){
+		return storage;
+	}
+
+	l = p->prev;
+	r = p->next;
+
+	if(l != NULL){
+		l->next = r;
+	} else {
+		storage = r;
+	}
+
+	if(r != NULL){
+		r->prev = l;
+	}
+
+	destroy_player(p->node);
+	free(p);
+	descs[id] = 0;
+
+	return storage;
+}
+
 
 void destroy_storage(p_players_storage storage)
 {
-	int i;
+	p_players_storage l = storage->prev, r = storage->next;
 
 	VRB(4, printf("player::destroy_storage\n"));
-	for(i = 0; i < storage->capacity; i++){
-		destroy_player(storage->players[i]);
-	}
-	free(storage->descs);
-	free(storage->players);
+
+	destroy_player(storage->node);
 	free(storage);
+
+	while(l != NULL){
+		destroy_player(l->node);
+		free(l);
+		l = l->prev;
+	}
+
+	while(r != NULL){
+		destroy_player(r->node);
+		free(r);
+		r = r->next;
+	}
+
+	free(descs);
+	descs = NULL;
 }
 
 /*========================== id<->desc table =========================*/
 
 
 /* returns -1 if not found */
-int id2desc(p_players_storage storage, int id)
-{
+int id2desc(int id){
 	VRB(4, printf("player::id2desc(id = %d)\n", id));
-	if(storage->descs == NULL){
+	if(descs == NULL){
 		return -1;
 	}
 
-	if(id >= 0 && id < storage->capacity){
-		return storage->descs[id];
+	if(id >= 0 && id < globalArgs.players){
+		return descs[id];
 	}
 
 	return -1;
 }
 
 /* returns -1 if not found */
-int desc2id(p_players_storage storage,  int desc)
-{
+int desc2id(int desc){
 	int id;
 
 	VRB(4, printf("player::desc2id(desc = %d)\n", desc));
 
-	if(storage->descs == NULL){
+	if(descs == NULL){
 		return -1;
 	}
 
-	for(id = 0; id < storage->capacity; id++){
-		if(storage->descs[id] == desc){
+	for(id = 0; id < globalArgs.players; id++){
+		if(descs[id] == desc){
 			return id;
 		}
 	}
@@ -232,6 +257,18 @@ int desc2id(p_players_storage storage,  int desc)
 	return -1;
 }
 
+static void init()
+{
+	if(descs == NULL){
+		int i;
+		VRB(4, printf("player::init()\n"));
+		descs = (int *) malloc(globalArgs.players * sizeof(*descs));
+		for(i = 0; i < globalArgs.players ; i++){
+			descs[i] = 0;
+		}
+	}
+
+}
 
 /*=================== queue & buffer jobs ============================*/
 
@@ -283,15 +320,11 @@ static char * pop_queue(struct message_queue * queue)
 	return s;
 }
 
-int push_buffer(p_players_storage storage, int id, char * buffer, int buffer_len)
+int push_buffer(p_player p, char * buffer, int buffer_len)
 {
-	p_player p = p = get_player(storage, id);
-	int size;
+	int size = p->buffer_size + buffer_len;
 
-	if(p == NULL){
-		return -1;
-	}
-	size = p->buffer_size + buffer_len;
+	VRB(4, printf("player::push_buffer(id = %d, buffer)\n", p->id));
 
 	/* copy to player's buffer */
 	if(size > globalArgs.kick_buffer_limit){
@@ -363,13 +396,9 @@ static int parse_messages(p_player p)
 	return cnt;
 }
 
-char * get_message(p_players_storage storage, int id)
+char * get_message(p_player p)
 {
-	p_player p;
 	VRB(4, printf("player::get_message(id = %d)\n", p->id));
-	if( (p = get_player(storage, id)) == NULL){
-		return NULL;
-	}
 
 	return pop_queue(p->messages);
 }
