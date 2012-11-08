@@ -41,7 +41,7 @@ struct gamer_instance{
 };
 
 
-static const struct market_state_t {
+const struct market_state_t {
 		float res_coeff;
 		int res_price;
 		float prod_coeff;
@@ -63,7 +63,7 @@ const float Markov_matrix[5][5] = {
 		{1, 1, 2, 4, 4},
 };
 
-const char help_info[] = \
+char help_info[] = \
 		"Possible commands:\n"
 		"\tmarket\tshows the market state\n"
 		"\tplayer id\tshows player info with taken id\n"
@@ -71,8 +71,8 @@ const char help_info[] = \
 		"\tbuy val price\tsend a request to buy 'val' resource for 'price'\n"
 		"\tsell val price\tsend a request to sell 'val' production for 'price'\n"
 		"\tbuild val\tbuilt 'val' factories (you can use it in 5 month)\n"
-		"\turn\tfinish this turn\n"
-		"help\tdisplay this message\n"
+		"\tturn\tfinish this turn\n"
+		"\thelp\tdisplay this message\n"
 		;
 
 

@@ -195,8 +195,6 @@ void destroy_storage(p_players_storage storage)
 }
 
 /*========================== id<->desc table =========================*/
-
-
 /* returns -1 if not found */
 int id2desc(p_players_storage storage, int id)
 {
@@ -231,7 +229,6 @@ int desc2id(p_players_storage storage,  int desc)
 
 	return -1;
 }
-
 
 /*=================== queue & buffer jobs ============================*/
 
@@ -321,17 +318,32 @@ static int parse_messages(p_player p)
 	char * s;
 	int buf_len = p->buffer_size, delta;
 	int cnt = 0;
+	int slash_r_found = 0;
 
 	VRB(4, printf("player::parse_messages(id = %d)\n", p->id));
 
 	while( (end = memchr(begin, '\n', buf_len)) != NULL ){
 		/* (begin, end) => p->message */
+		slash_r_found = 0;
+		if(end - begin > 0){
+			if(*(end-1) == '\r'){
+				end--;
+				slash_r_found = 1;
+			}
+		}
 		delta = end - begin + 1;
 
 		s = (char *) malloc ( (delta + 1) * sizeof(*s) );
 		strncpy(s, begin, delta);
-		s[delta + 1] = '\0';
+		s[delta] = '\0';
+		if(slash_r_found){
+			s[delta-1] = '\n';
+		}
 		push_queue(p->messages, s);
+
+		if(slash_r_found){
+			end++;
+		}
 
 		begin = end+1;
 		buf_len -= delta;

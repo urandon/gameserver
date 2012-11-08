@@ -245,7 +245,7 @@ void game_process()
 	buffer = (char *) malloc (buffer_size * sizeof(char));
 	strcpy(message, "Admin, stop playing with console. Don't be like a schoolar.\n");
 
-	while(game_state_update() != -1){
+	do{
 		max_d = build_active_set(&rdfs);
 		if(connected != globalArgs.connected_players){
 			message_len = sprintf(message, \
@@ -292,12 +292,15 @@ void game_process()
 					while((command = get_message(storage, id)) != NULL){
 						game_command(id, command);
 						free(command);
+						if(id2desc(storage, id) != -1){
+							send_dirrect(id, ">> ");
+						}
 					}
 				}
 			}
 		}
 
-	}
+	} while (game_state_update() != -1);
 }
 
 

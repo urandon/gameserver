@@ -118,15 +118,13 @@ void game_start(int n)
 
 	srand(clock());
 	global.gamers = (p_gamer_instance *) malloc (n * sizeof(*global.gamers));
+	global.active_players = global.total_players = n;
+
 	for(id = 0; id < global.total_players; id++){
 		global.gamers[id] = new_gamer_instance(id);
 	}
 
-	global.active_players = global.total_players = n;
 	global.month = 1;
-	for(id = 0; id < global.total_players; id++){
-		reset_request(id);
-	}
 	global.finished_players = 0;
 	global.trade_players = 0;
 	global.current_market_state = default_market_state - 1;
@@ -183,19 +181,19 @@ void game_request_get_playerinfo(int from_id, int about_id)
 		sprintf(global.message_buffer,
 				"The player[%d] went into a bankrupt\n", id);
 	} else {
-		int i, process_factories = 0;
+		int i, all_factories = 0;
 		for(i = 0; i < FACTORY_BUILD_TIME; i++){
-			process_factories += g->factory[i];
+			all_factories += g->factory[i];
 		}
 
 		sprintf(global.message_buffer,
 				"Player[%d] info:\n"
 				"\tmoney\t=%ld\n"
-				"\tfactories\t(active) = %d\t(in process) = %d\n"
+				"\tfactories\t(active) = %d\t(in progress) = %d\n"
 				"\tproduction\t= %d\n"
 				"\tresource\t=%d\n",
 				id, g->cash,
-				g->factory[0], process_factories,
+				g->factory[0], all_factories - g->factory[0],
 				g->prod, g->res);
 	}
 
@@ -209,11 +207,13 @@ void game_request_get_marketinfo(int from_id)
 
 	sprintf(global.message_buffer,
 			"Market info:\n"
+			"\tMarket state#\t%d\n"
 			"\tMinimal resource price\t=%d\n"
 			"\tMaximal production price\t=%d\n"
 			"\tResource quantity\t=%d\n"
 			"\tProduction needs\t=%d\n"
 			"\tActive players\t=%d\n",
+			global.current_market_state+1,
 			ms->res_price, ms->prod_price,
 			(int)(ms->res_coeff  * global.active_players),
 			(int)(ms->prod_coeff * global.active_players),
@@ -380,13 +380,13 @@ void game_month_totals()
 		if((g = global.gamers[id]) != NULL){
 			if(g->request.prod_approved != 0){
 				sprintf(global.message_buffer,
-						"Congrutilations! You sold %d products",
+						"Congrutilations! You sold %d products\n",
 						g->request.prod_approved);
 				send_dirrect(id, global.message_buffer);
 			}
 			if(g->request.res_approved != 0){
 				sprintf(global.message_buffer,
-						"Congrutilations! You bought %d resources",
+						"Congrutilations! You bought %d resources\n",
 						g->request.res_approved);
 				send_dirrect(id, global.message_buffer);
 			}
@@ -412,7 +412,7 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 		if(ms->res_price > price){
 			sprintf(global.message_buffer,
 					"You can't take such small bid. "
-					"The minimal price for resource is %d",
+					"The minimal price for resource is %d\n",
 					ms->res_price);
 			send_dirrect(id, global.message_buffer);
 		} else {
@@ -423,7 +423,7 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 		if(ms->prod_price > price){
 			sprintf(global.message_buffer,
 					"You can't take such big bid. "
-					"The maximal price for production is %d",
+					"The maximal price for production is %d\n",
 					ms->prod_price);
 			send_dirrect(id, global.message_buffer);
 		} else {
@@ -472,7 +472,7 @@ void game_request_finish_turn(int id)
 		global.gamers[id]->finished_turn = 1;
 		global.finished_players++;
 		sprintf(global.message_buffer,
-				"The player[%d] has finished the turn", id);
+				"The player[%d] has finished the turn\n", id);
 		send_broadcast(global.message_buffer);
 	}
 }
@@ -506,10 +506,13 @@ int game_command(int id, char * command)
 		case 3:
 			price = atoi(tokens->token->next->next->word);
 		case 2:
-			price = atoi(tokens->token->next->word);
+			val = atoi(tokens->token->next->word);
 		case 1:
 			word = tokens->token->word;
 			break;
+		default:
+			send_dirrect(id, "Unknown command\n");
+			game_request_help(id);
 		case 0:
 			destroy_tokens(tokens);
 			return -1;
