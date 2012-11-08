@@ -31,6 +31,7 @@ enum auction_type {
 /* In-game interface */
 void game_request_get_playerinfo(int from_id, int about_id);
 void game_request_get_marketinfo(int from_id);
+void game_request_get_generalinfo(int from_id);
 void game_request_build_factory(int id, int quantity);
 void game_request_convert_resource(int id, int quantity);
 void game_request_auction_bid(int id, enum auction_type type, int value, int price);
@@ -191,12 +192,30 @@ void game_request_get_playerinfo(int from_id, int about_id)
 				"\tmoney\t=%ld\n"
 				"\tfactories\t(active) = %d\t(in progress) = %d\n"
 				"\tproduction\t= %d\n"
-				"\tresource\t=%d\n",
+				"\tresource\t= %d\n",
 				id, g->cash,
 				g->factory[0], all_factories - g->factory[0],
 				g->prod, g->res);
 	}
 
+	send_dirrect(from_id, global.message_buffer);
+}
+
+void game_request_get_generalinfo(int from_id)
+{
+	sprintf(global.message_buffer,
+			"General info (game constants):\n"
+			"\tFactiory build time\t= %d\n"
+			"\tFactory price\t= %d\n"
+			"\tConvertation (resource->production) price\t= %d\n"
+			"\tMonthy expenditures (for each object):\n"
+			"\t\tfactory\t= %d\n"
+			"\t\tresource\t= %d\n"
+			"\t\tproduction\t= %d\n"
+			,FACTORY_BUILD_TIME,factory_price,
+			convertation_price,
+			monthy.factory, monthy.res, monthy.prod
+			);
 	send_dirrect(from_id, global.message_buffer);
 }
 
@@ -207,12 +226,12 @@ void game_request_get_marketinfo(int from_id)
 
 	sprintf(global.message_buffer,
 			"Market info:\n"
-			"\tMarket state#\t%d\n"
-			"\tMinimal resource price\t=%d\n"
-			"\tMaximal production price\t=%d\n"
-			"\tResource quantity\t=%d\n"
-			"\tProduction needs\t=%d\n"
-			"\tActive players\t=%d\n",
+			"\tMarket state#\t= %d\n"
+			"\tMinimal resource price\t= %d\n"
+			"\tMaximal production price\t= %d\n"
+			"\tResource quantity\t= %d\n"
+			"\tProduction needs\t= %d\n"
+			"\tActive players\t= %d\n",
 			global.current_market_state+1,
 			ms->res_price, ms->prod_price,
 			(int)(ms->res_coeff  * global.active_players),
@@ -481,7 +500,13 @@ void game_request_finish_turn(int id)
 
 int game_state_update()
 {
-	if(global.active_players <= 0){
+	int id;
+	if(global.active_players <= 1){
+		for(id = 0; id < global.total_players; id++){
+			if(global.gamers[id] != NULL){
+				send_dirrect(id, "You WIN!\n");
+			}
+		}
 		return -1;
 	}
 	if(global.active_players <= global.finished_players){
@@ -541,7 +566,11 @@ int game_command(int id, char * command)
 	} else
 	if(!strcmp(word, "sell")){
 		game_request_auction_bid(id, PRODUCTION, val, price);
-	} else {
+	} else
+	if(!strcmp(word, "generalinfo")){
+		game_request_get_generalinfo(id);
+	}
+	else {
 		send_dirrect(id, "Unknown command\n");
 		game_request_help(id);
 	}

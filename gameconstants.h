@@ -73,6 +73,7 @@ char help_info[] = \
 		"\tbuild val\tbuilt 'val' factories (you can use it in 5 month)\n"
 		"\tturn\tfinish this turn\n"
 		"\thelp\tdisplay this message\n"
+		"\tgeneralinfo\tdisplay general game constants\n"
 		;
 
 
