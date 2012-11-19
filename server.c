@@ -227,6 +227,7 @@ void wait4connections()
 		}
 
 	}
+	free(buffer);
 }
 
 
@@ -301,6 +302,7 @@ void game_process()
 		}
 
 	} while (game_state_update() != -1);
+	free(buffer);
 }
 
 
@@ -314,7 +316,7 @@ int main(int argc, char ** argv)
 	start_listen(argv[0]);
 	storage = new_storage(globalArgs.players);
 	wait4connections();
-	send_broadcast("The Game is started!\n");
+	send_broadcast("The Game is started!\n>>\n");
 	game_start(globalArgs.players);
 	game_process();
 	send_broadcast("The Game is over!\n");

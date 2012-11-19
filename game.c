@@ -59,7 +59,15 @@ p_gamer_instance new_gamer_instance(int id)
 	p->factory[0]	= default_gamer.factory[0];
 	p->cash			= default_gamer.cash;
 	p->finished_turn	= 0;
-	reset_request(id);
+
+	p->request.res2prod = 0;
+	p->request.res_value = 0;
+	p->request.res_price = 0;
+	p->request.res_approved = 0;
+	p->request.prod_value = 0;
+	p->request.prod_price = 0;
+	p->request.prod_approved = 0;
+
 
 	for(i = 1; i < FACTORY_BUILD_TIME; i++){
 		p->factory[i] = 0;
@@ -89,6 +97,10 @@ void game_new_month()
 			factories[0] += curr_factories;
 			factories[FACTORY_BUILD_TIME-1] = 0;
 
+			sprintf(global.message_buffer,
+					"Congrutilations! You have %d new factories\n",
+					curr_factories);
+
 			/* reset monthly activity */
 			reset_request(id);
 			global.gamers[id]->finished_turn = 0;
@@ -98,13 +110,14 @@ void game_new_month()
 
 	/* Change market state according to the Markov process */
 
-	r = 1 + (int)(12.0*rand()/(RAND_MAX+1.0));
-	for(i = 0, acc = 0; acc < r; i++){
+	r = 1 + (int)(12.0*rand()/(RAND_MAX+1.0)); /* r in  [1,...,12] */
+	i = acc = 0;
+	while(acc < r){
 		acc += Markov_matrix[global.current_market_state][i];
+		i++;
 	}
-	/* i in [1, .. , 5], g.cms in [0, .., 4]
-	 * and i in marks the_next_state */
-	global.current_market_state = i - 2;
+	/* i refer to the_next_state */
+	global.current_market_state = i - 1;
 
 	sprintf(global.message_buffer,
 			"Happy new %d month! The market state is %d\n",
@@ -174,8 +187,8 @@ void game_request_get_playerinfo(int from_id, int about_id)
 
 	if(!(id >= 0 && id < global.total_players)){
 		sprintf(global.message_buffer,
-				"Wrong player id[%d]. \
-				Try another value between 0 and %d\n",
+				"Wrong player id[%d]. "
+				"Try another value between 0 and %d\n",
 				id, global.total_players);
 	} else
 	if( (g = global.gamers[id]) == NULL){
@@ -189,7 +202,7 @@ void game_request_get_playerinfo(int from_id, int about_id)
 
 		sprintf(global.message_buffer,
 				"Player[%d] info:\n"
-				"\tmoney\t=%ld\n"
+				"\tmoney\t= %ld\n"
 				"\tfactories\t(active) = %d\t(in progress) = %d\n"
 				"\tproduction\t= %d\n"
 				"\tresource\t= %d\n",
@@ -397,15 +410,24 @@ void game_month_totals()
 	int id;
 	for(id = 0; id < global.total_players; id++){
 		if((g = global.gamers[id]) != NULL){
-			if(g->request.prod_approved != 0){
+			if(g->request.res2prod != 0){
+				g->prod += g->request.res2prod;
 				sprintf(global.message_buffer,
-						"Congrutilations! You sold %d products\n",
+						"You have produced %d production\n",
+						g->request.res2prod);
+				send_dirrect(id, global.message_buffer);
+			}
+			if(g->request.prod_approved != 0){
+				g->prod -= g->request.prod_approved;
+				sprintf(global.message_buffer,
+						"Congrutilations! You have sold %d products\n",
 						g->request.prod_approved);
 				send_dirrect(id, global.message_buffer);
 			}
 			if(g->request.res_approved != 0){
+				g->res += g->request.res_approved;
 				sprintf(global.message_buffer,
-						"Congrutilations! You bought %d resources\n",
+						"Congrutilations! You have bought %d resources\n",
 						g->request.res_approved);
 				send_dirrect(id, global.message_buffer);
 			}
@@ -488,11 +510,17 @@ void game_request_convert_resource(int id, int quantity)
 void game_request_finish_turn(int id)
 {
 	if(global.gamers[id] != NULL){
-		global.gamers[id]->finished_turn = 1;
-		global.finished_players++;
-		sprintf(global.message_buffer,
-				"The player[%d] has finished the turn\n", id);
-		send_broadcast(global.message_buffer);
+		if(global.gamers[id]->finished_turn == 0){
+			global.gamers[id]->finished_turn = 1;
+			global.finished_players++;
+			sprintf(global.message_buffer,
+					"The player[%d] has finished the turn\n", id);
+			send_broadcast(global.message_buffer);
+		} else {
+			sprintf(global.message_buffer,
+					"Heh. You can't finish the turn twice.\n");
+			send_dirrect(id, global.message_buffer);
+		}
 	}
 }
 
@@ -511,7 +539,7 @@ int game_state_update()
 	}
 	if(global.active_players <= global.finished_players){
 		send_broadcast(
-				"All the turns finished. It's a time to sell and buy goods.\n");
+				"All the turns finished. It's time to look at the stats.\n");
 		game_auction_totals();
 		game_month_totals();
 		game_new_month();
@@ -548,6 +576,9 @@ int game_command(int id, char * command)
 	} else
 	if(!strcmp(word, "player")){
 		game_request_get_playerinfo(id, val);
+	} else
+	if(!strcmp(word, "stat")){
+		game_request_get_playerinfo(id, id);
 	} else
 	if(!strcmp(word, "help")){
 		game_request_help(id);

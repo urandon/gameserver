@@ -36,7 +36,7 @@ struct gamer_instance{
 	int finished_turn;
 	struct request_t request;
 } default_gamer = {
-		0, {2}, 4, 2, 1000, 0,
+		0, {2}, 4, 2, 10000, 0,
 		{0, 0, 0, 0, 0, 0, 0}
 };
 
@@ -55,7 +55,7 @@ const struct market_state_t {
 };
 const int default_market_state = 3;
 
-const float Markov_matrix[5][5] = {
+const int Markov_matrix[5][5] = {
 		{4, 4, 2, 1, 1},
 		{3, 4, 3, 1, 1},
 		{1, 3, 4, 3, 1},
@@ -67,6 +67,7 @@ char help_info[] = \
 		"Possible commands:\n"
 		"\tmarket\tshows the market state\n"
 		"\tplayer id\tshows player info with taken id\n"
+		"\tstat\tshows your resources\n"
 		"\tprod val\tproduce 'val' production\n"
 		"\tbuy val price\tsend a request to buy 'val' resource for 'price'\n"
 		"\tsell val price\tsend a request to sell 'val' production for 'price'\n"
