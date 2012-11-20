@@ -105,7 +105,7 @@ static void destroy_messages(p_player p)
 
 	VRB(4, printf("player::destroy_messages(id = %d)\n", p->id));
 
-	if(p->messages != NULL){
+	if(p->messages != (struct message_queue *) NULL){
 		m = p->messages->hi;
 		while(m != NULL){
 			n = m->next;
@@ -187,7 +187,9 @@ void destroy_storage(p_players_storage storage)
 
 	VRB(4, printf("player::destroy_storage\n"));
 	for(i = 0; i < storage->capacity; i++){
-		destroy_player(storage->players[i]);
+		if(storage->descs[i] != -1){
+			destroy_player(storage->players[i]);
+		}
 	}
 	free(storage->descs);
 	free(storage->players);
@@ -261,6 +263,9 @@ static char * pop_queue(struct message_queue * queue)
 
 	VRB(4, printf("player::pop_queue()\n"));
 
+	if(queue == NULL){
+		return NULL;
+	}
 	if(queue->hi == NULL){
 		return NULL;
 	}
@@ -282,7 +287,7 @@ static char * pop_queue(struct message_queue * queue)
 
 int push_buffer(p_players_storage storage, int id, char * buffer, int buffer_len)
 {
-	p_player p = p = get_player(storage, id);
+	p_player p = get_player(storage, id);
 	int size;
 
 	if(p == NULL){
@@ -306,10 +311,6 @@ int push_buffer(p_players_storage storage, int id, char * buffer, int buffer_len
 	return parse_messages(p);
 }
 
-/**
- * TODO: buffer reallocation
- * 		 and recounting
- */
 /* returns the #of new messages */
 static int parse_messages(p_player p)
 {

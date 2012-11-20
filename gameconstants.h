@@ -76,6 +76,14 @@ char help_info[] = \
 		"\thelp\tdisplay this message\n"
 		"\tgeneralinfo\tdisplay general game constants\n"
 		;
+char help_info_for_bankrupts[] = \
+		"You are bankrupt. You can watch the game stats. Your possible commands:\n"
+		"\tmarket\tshows the market state\n"
+		"\tplayer id\tshows player info with taken id\n"
+		"\tstat\tshows your resources\n"
+		"\thelp\tdisplay this message\n"
+		"\tgeneralinfo\tdisplay general game constants\n"
+		;
 
 
 #endif

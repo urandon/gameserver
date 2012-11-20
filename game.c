@@ -11,6 +11,9 @@
 typedef struct gamer_instance *p_gamer_instance;
 
 /* contains pointers to active gamers */
+enum BUFFERSIZE_T{
+	BUFFERSIZE = 512
+};
 static struct global_t{
 	p_gamer_instance * gamers;
 	int total_players;
@@ -19,7 +22,7 @@ static struct global_t{
 	int trade_players;
 	int month;
 	int current_market_state;
-	char message_buffer[512];
+	char message_buffer[BUFFERSIZE];
 } global;
 
 
@@ -157,12 +160,14 @@ void game_finish()
 void game_kick(int id)
 {
 	if(global.gamers != NULL && id >= 0 && id < global.total_players){
-		if(global.gamers[id]->finished_turn){
-			global.finished_players--;
+		if(global.gamers[id] != NULL){
+			if(global.gamers[id]->finished_turn){
+				global.finished_players--;
+			}
+			free(global.gamers[id]);
+			global.gamers[id] = NULL;
+			global.active_players--;
 		}
-		free(global.gamers[id]);
-		global.gamers[id] = NULL;
-		global.active_players--;
 	}
 }
 
@@ -258,16 +263,21 @@ void game_request_help(int id)
 {
 	if(global.gamers[id] != NULL){
 		send_dirrect(id, help_info);
+	} else {
+		send_dirrect(id, help_info_for_bankrupts);
 	}
 }
 
 void game_player_pay(int id, int money)
 {
 	if(global.gamers[id] != NULL){
-		if(global.gamers[id]->cash >= money){
-			global.gamers[id]->cash -= money;
-		} else {
-			kick_player(id, "he is bankrupt");
+		global.gamers[id]->cash -= money;
+		if(global.gamers[id]->cash < 0){
+			sprintf(global.message_buffer,
+					"Player [%d] goes bankrupt\n",
+					id);
+			send_broadcast(global.message_buffer);
+			game_kick(id);
 		}
 	}
 }
@@ -571,6 +581,8 @@ int game_command(int id, char * command)
 			return -1;
 	};
 
+
+	/* common tread both for gamers and zombies */
 	if(!strcmp(word, "market")){
 		game_request_get_marketinfo(id);
 	} else
@@ -583,28 +595,37 @@ int game_command(int id, char * command)
 	if(!strcmp(word, "help")){
 		game_request_help(id);
 	} else
-	if(!strcmp(word, "turn")){
-		game_request_finish_turn(id);
-	} else
-	if(!strcmp(word, "build")){
-		game_request_build_factory(id, val);
-	} else
-	if(!strcmp(word, "prod")){
-		game_request_convert_resource(id, val);
-	} else
-	if(!strcmp(word, "buy")){
-		game_request_auction_bid(id, RESOURCE, val, price);
-	} else
 	if(!strcmp(word, "sell")){
 		game_request_auction_bid(id, PRODUCTION, val, price);
 	} else
 	if(!strcmp(word, "generalinfo")){
 		game_request_get_generalinfo(id);
-	}
-	else {
+	} else
+
+	if(global.gamers[id] != NULL){ /* if user is can play */
+		if(!strcmp(word, "turn")){
+			game_request_finish_turn(id);
+		} else
+		if(!strcmp(word, "build")){
+			game_request_build_factory(id, val);
+		} else
+		if(!strcmp(word, "prod")){
+			game_request_convert_resource(id, val);
+		} else
+		if(!strcmp(word, "buy")){
+			game_request_auction_bid(id, RESOURCE, val, price);
+		} else
+		if(!strcmp(word, "sell")){
+			game_request_auction_bid(id, PRODUCTION, val, price);
+		} else {
+			send_dirrect(id, "Unknown command\n");
+			game_request_help(id);
+		}
+	} else { /* if user can't play */
 		send_dirrect(id, "Unknown command\n");
 		game_request_help(id);
 	}
+
 
 	destroy_tokens(tokens);
 

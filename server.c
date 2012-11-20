@@ -320,6 +320,8 @@ int main(int argc, char ** argv)
 	game_start(globalArgs.players);
 	game_process();
 	send_broadcast("The Game is over!\n");
+	game_finish();
+	destroy_storage(storage);
 
 	return 0;
 }
