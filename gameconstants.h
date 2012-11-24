@@ -40,7 +40,6 @@ struct gamer_instance{
 		{0, 0, 0, 0, 0, 0, 0}
 };
 
-
 const struct market_state_t {
 		float res_coeff;
 		int res_price;

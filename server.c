@@ -71,24 +71,29 @@ void send_dirrect(int id, const char * message)
 	}
 }
 
-void send_broadcast(const char * message)
+/* the buffer will not be received to the host console */
+void send_broadcast_buff(const char * buffer, int length)
 {
 	int id, desc;
-	int length = strlen(message)+1;
 
-	VRB(3, printf("server::send_broadcast(%s)\n", message));
-	printf("%s", message);
+	VRB(3, printf("server::send_broadcast_buff(%s)\n", message));
 
 	for(id = 0; id < storage->capacity; id++){
 		if( (desc = id2desc(storage, id)) != -1){
-			VRB(3, printf("server::send_broadcast() -> [%d]\n", id));
-			if(send_dirrect_buff(desc, message, length) == -1){
+			VRB(3, printf("server::send_broadcast_buff() -> [%d]\n", id));
+			if(send_dirrect_buff(desc, buffer, length) == -1){
 				/* Exception */
 				/* kill the player ha-ha-ha!!! */
 				/* heh, it was just a joke */
 			}
 		}
 	}
+}
+
+void send_broadcast(const char * message)
+{
+		printf("%s", message);
+		send_broadcast_buff(message, strlen(message)+1);
 }
 
 void kick_player(int id, char * description)
@@ -293,9 +298,6 @@ void game_process()
 					while((command = get_message(storage, id)) != NULL){
 						game_command(id, command);
 						free(command);
-						if(id2desc(storage, id) != -1){
-							send_dirrect(id, ">> ");
-						}
 					}
 				}
 			}
@@ -316,7 +318,7 @@ int main(int argc, char ** argv)
 	start_listen(argv[0]);
 	storage = new_storage(globalArgs.players);
 	wait4connections();
-	send_broadcast("The Game is started!\n>>\n");
+	send_broadcast("The Game is started!\n>> ");
 	game_start(globalArgs.players);
 	game_process();
 	send_broadcast("The Game is over!\n");

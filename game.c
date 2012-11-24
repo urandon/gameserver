@@ -310,11 +310,11 @@ int game_player_total_month_spent(int id)
 
 
 int cmp_res(int id1, int id2){
-	return	global.gamers[id1]->request.res_price <
+	return	global.gamers[id1]->request.res_price >
 			global.gamers[id2]->request.res_price;
 }
 int cmp_prod(int id1, int id2){
-	return	global.gamers[id1]->request.prod_price >
+	return	global.gamers[id1]->request.prod_price <
 			global.gamers[id2]->request.prod_price;
 }
 void game_auction_totals()
@@ -336,17 +336,19 @@ void game_auction_totals()
 	}
 	sort(sorted, traders, cmp_res, buffer);
 	/* take gifts */
-	val_left = (int) market_state[global.current_market_state].res_coeff *
-				global.active_players;
+	val_left = (int) (market_state[global.current_market_state].res_coeff *
+				global.active_players);
 	lo = hi = 0;
-	while(val_left > 0 && hi < traders){
+	while(val_left > 0 && lo < traders){
 		if(lo > hi){
 			hi = lo;
 		}
-		while(g[sorted[lo]]->request.res_price ==
-				g[sorted[hi]]->request.res_price && hi < traders){
+		while(hi < traders && g[sorted[lo]]->request.res_price ==
+				g[sorted[hi]]->request.res_price){
 			hi++;
 		}
+		hi--;
+
 		while(lo <= hi && val_left > 0){
 			if(lo < hi){
 				/* pick one of them by random */
@@ -379,17 +381,20 @@ void game_auction_totals()
 	}
 	sort(sorted, traders, cmp_prod, buffer);
 	/* take gifts */
-	val_left = (int) market_state[global.current_market_state].prod_coeff *
-				global.active_players;
+	val_left = (int) (market_state[global.current_market_state].prod_coeff *
+				global.active_players);
 	lo = hi = 0;
-	while(val_left > 0 && hi < traders){
+	while(val_left > 0 && lo < traders){
 		if(lo > hi){
 			hi = lo;
 		}
-		while(g[sorted[lo]]->request.prod_price ==
-				g[sorted[hi]]->request.prod_price && hi < traders){
+		while(hi < traders && g[sorted[lo]]->request.prod_price ==
+				g[sorted[hi]]->request.prod_price )
+		{
 			hi++;
 		}
+		hi--;
+
 		while(lo <= hi && val_left > 0){
 			if(lo < hi){
 				/* pick one of them by random */
@@ -454,6 +459,9 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 	struct market_state_t * ms =
 			(struct market_state_t * )(market_state + global.current_market_state);
 	struct request_t * req = NULL;
+	int was_requester = global.gamers[id]->request.prod_value &&
+						global.gamers[id]->request.res_value;
+	int still_requester;
 
 	if(global.gamers[id] != NULL){
 		req = &(global.gamers[id]->request);
@@ -469,25 +477,60 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 		} else {
 			req->res_value = value;
 			req->res_price = price;
+			sprintf(global.message_buffer,
+					"Your current bid is %d resources for $%d per one\n"
+					"You can change your request if you want\n",
+					value, price);
+			send_dirrect(id, global.message_buffer);
 		}
-	} else {
-		if(ms->prod_price > price){
+	} else { /* type == PRODUCTION */
+		if(ms->prod_price < price){
 			sprintf(global.message_buffer,
 					"You can't take such big bid. "
 					"The maximal price for production is %d\n",
 					ms->prod_price);
 			send_dirrect(id, global.message_buffer);
+		} else
+		if(global.gamers[id]->prod < value){
+			sprintf(global.message_buffer,
+					"You can't sell production that do don't have. "
+					"Your avaible production quantity is %d.\n",
+					global.gamers[id]->prod);
+			send_dirrect(id, global.message_buffer);
+
 		} else {
 			req->prod_value = value;
 			req->prod_price = price;
+			sprintf(global.message_buffer,
+					"Your current bid is %d production for $%d per one\n"
+					"You can change your request if you want\n",
+					value, price);
+			send_dirrect(id,  global.message_buffer);
 		}
 	}
+
+	still_requester = global.gamers[id]->request.prod_value	&&
+			global.gamers[id]->request.res_value;
+
+	if(was_requester && !still_requester){
+		global.trade_players--;
+	} else
+	if(!was_requester && still_requester){
+		global.trade_players++;
+	}
+
+
 }
 
 void game_request_build_factory(int id, int quantity)
 {
 	if(global.gamers[id] != NULL){
 		global.gamers[id]->factory[FACTORY_BUILD_TIME-1] += quantity;
+		sprintf(global.message_buffer,
+				"You requested to build %d factories. "
+				"It will be avaible in %d months.\n",
+				quantity, FACTORY_BUILD_TIME);
+		send_dirrect(id, global.message_buffer);
 		game_player_pay(id, factory_price * quantity);
 	}
 }
@@ -499,6 +542,11 @@ void game_request_convert_resource(int id, int quantity)
 		if(p->request.res2prod + quantity <= p->factory[0] && p->res >= quantity){
 			p->request.res2prod += quantity;
 			p->res -= quantity;
+			sprintf(global.message_buffer,
+					"You requested to produce %d production. "
+					"It will be avaible on the next month.\n",
+					quantity);
+			send_dirrect(id, global.message_buffer);
 			game_player_pay(id, convertation_price * quantity);
 		} else
 		if(p->res < quantity){
@@ -532,6 +580,9 @@ void game_request_finish_turn(int id)
 			send_dirrect(id, global.message_buffer);
 		}
 	}
+	if(global.finished_players >= global.active_players){
+		game_state_update();
+	}
 }
 
 /*============================= game process ================================*/
@@ -564,6 +615,7 @@ int game_command(int id, char * command)
 	p_tokens tokens = split(command);
 	char * word;
 	int val = 0, price = 0;
+	int cnt = tokens->cnt;
 
 	switch(tokens->cnt){
 		case 3:
@@ -583,10 +635,12 @@ int game_command(int id, char * command)
 
 
 	/* common tread both for gamers and zombies */
+
+
 	if(!strcmp(word, "market")){
 		game_request_get_marketinfo(id);
 	} else
-	if(!strcmp(word, "player")){
+	if(!strcmp(word, "player") && cnt == 1){
 		game_request_get_playerinfo(id, val);
 	} else
 	if(!strcmp(word, "stat")){
@@ -594,9 +648,6 @@ int game_command(int id, char * command)
 	} else
 	if(!strcmp(word, "help")){
 		game_request_help(id);
-	} else
-	if(!strcmp(word, "sell")){
-		game_request_auction_bid(id, PRODUCTION, val, price);
 	} else
 	if(!strcmp(word, "generalinfo")){
 		game_request_get_generalinfo(id);
@@ -606,16 +657,16 @@ int game_command(int id, char * command)
 		if(!strcmp(word, "turn")){
 			game_request_finish_turn(id);
 		} else
-		if(!strcmp(word, "build")){
+		if(!strcmp(word, "build") && cnt == 2){
 			game_request_build_factory(id, val);
 		} else
-		if(!strcmp(word, "prod")){
+		if(!strcmp(word, "prod") && cnt == 2){
 			game_request_convert_resource(id, val);
 		} else
-		if(!strcmp(word, "buy")){
+		if(!strcmp(word, "buy") && cnt == 3){
 			game_request_auction_bid(id, RESOURCE, val, price);
 		} else
-		if(!strcmp(word, "sell")){
+		if(!strcmp(word, "sell") && cnt == 3){
 			game_request_auction_bid(id, PRODUCTION, val, price);
 		} else {
 			send_dirrect(id, "Unknown command\n");
@@ -625,6 +676,8 @@ int game_command(int id, char * command)
 		send_dirrect(id, "Unknown command\n");
 		game_request_help(id);
 	}
+
+	send_dirrect(id, ">> ");
 
 
 	destroy_tokens(tokens);
