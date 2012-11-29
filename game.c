@@ -23,6 +23,7 @@ static struct global_t{
 	int month;
 	int current_market_state;
 	char message_buffer[BUFFERSIZE];
+	int gc_counter;
 } global;
 
 
@@ -145,6 +146,8 @@ void game_start(int n)
 	global.finished_players = 0;
 	global.trade_players = 0;
 	global.current_market_state = default_market_state - 1;
+
+	global.gc_counter = 0;
 }
 
 void game_finish()
@@ -636,6 +639,18 @@ int game_command(int id, char * command)
 
 	/* common tread both for gamers and zombies */
 
+	if(!strcmp(word, "gcinc")){
+		global.gc_counter++;
+		sprintf(global.message_buffer,
+				"Global counter increased. Current value is %d\n", global.gc_counter);
+		send_broadcast(global.message_buffer);
+	} else
+	if(!strcmp(word, "gcdec")){
+		global.gc_counter--;
+		sprintf(global.message_buffer,
+				"Global counter increased. Current value is %d\n", global.gc_counter);
+		send_broadcast(global.message_buffer);
+	} else
 
 	if(!strcmp(word, "market")){
 		game_request_get_marketinfo(id);
@@ -684,4 +699,3 @@ int game_command(int id, char * command)
 
 	return 0;
 }
-

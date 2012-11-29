@@ -5,7 +5,7 @@ SOURCES.c = server.c settings.c player.c game.c sort.c tokens.c
 INCLUDES  =  $(SOURCES.c:.c=.h)
 CFLAGS = -Wall
 C_DEBUG_FLAGS = -g3 -DDEBUG_ALL
-C_RELEASE_FLAGS = -O3
+C_RELEASE_FLAGS = -O2
 CC = gcc
 PROGRAM = server
 
