@@ -651,11 +651,15 @@ int game_command(int id, char * command)
 				"Global counter increased. Current value is %d\n", global.gc_counter);
 		send_broadcast(global.message_buffer);
 	} else
+	if(command[0] == '/'){
+		sprintf(global.message_buffer, "Chat::Player[%d] says::%s", id, command+1);
+		send_broadcast(global.message_buffer);
+	}else
 
 	if(!strcmp(word, "market")){
 		game_request_get_marketinfo(id);
 	} else
-	if(!strcmp(word, "player") && cnt == 1){
+	if(!strcmp(word, "player") && cnt == 2){
 		game_request_get_playerinfo(id, val);
 	} else
 	if(!strcmp(word, "stat")){

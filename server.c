@@ -90,11 +90,20 @@ void send_broadcast_buff(const char * buffer, int length)
 	}
 }
 
-void send_broadcast(const char * message)
+void send_broadcast_raw(const char * message)
 {
 		printf("%s", message);
 		send_broadcast_buff(message, strlen(message)+1);
 }
+
+
+void send_broadcast(const char * message)
+{
+		printf("%s", message);
+		send_broadcast_buff(message, strlen(message)+1);
+		send_broadcast_raw(">> ");
+}
+
 
 void kick_player(int id, char * description)
 {
@@ -199,11 +208,11 @@ void wait4connections()
 				message_len = sprintf(message, \
 					"New user %s[%d] has been connected\n", \
 					p->name, p->id);
-				send_broadcast(message);
+				send_broadcast_raw(message);
 				message_len = sprintf(message, \
 					"Waiting for users: %d of %d connected\n", \
 					++globalArgs.connected_players, n);
-				send_broadcast(message);
+				send_broadcast_raw(message);
 			}
 		}
 		for(id = 0; id < storage->capacity; id++){
@@ -318,10 +327,10 @@ int main(int argc, char ** argv)
 	start_listen(argv[0]);
 	storage = new_storage(globalArgs.players);
 	wait4connections();
-	send_broadcast("The Game is started!\n>> ");
+	send_broadcast("The Game is started!\n");
 	game_start(globalArgs.players);
 	game_process();
-	send_broadcast("The Game is over!\n");
+	send_broadcast_raw("The Game is over!\n");
 	game_finish();
 	destroy_storage(storage);
 
