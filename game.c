@@ -23,6 +23,7 @@ static struct global_t{
 	int month;
 	int current_market_state;
 	char message_buffer[BUFFERSIZE];
+	char message_buffer_m[BUFFERSIZE];
 	int gc_counter;
 } global;
 
@@ -126,7 +127,12 @@ void game_new_month()
 	sprintf(global.message_buffer,
 			"Happy new %d month! The market state is %d\n",
 			global.month, global.current_market_state+1);
-	send_broadcast(global.message_buffer);
+	send_broadcast(global.message_buffer, S_HUMAN);
+	sprintf(global.message_buffer_m,
+			"new_month %d %d\n",
+			global.month, global.current_market_state+1);
+	send_broadcast(global.message_buffer_m, S_BROADCAST);
+
 }
 
 
@@ -198,10 +204,14 @@ void game_request_get_playerinfo(int from_id, int about_id)
 				"Wrong player id[%d]. "
 				"Try another value between 0 and %d\n",
 				id, global.total_players);
+		sprintf(global.message_buffer_m, "w id=%d\n", id);
 	} else
-	if( (g = global.gamers[id]) == NULL){
+	if((g = global.gamers[id]) == NULL){
 		sprintf(global.message_buffer,
 				"The player[%d] went into a bankrupt\n", id);
+		sprintf(global.message_buffer_m,
+				"g b id=%d\n", id); // feedback bankrupt
+
 	} else {
 		int i, all_factories = 0;
 		for(i = 0; i < FACTORY_BUILD_TIME; i++){
@@ -217,9 +227,14 @@ void game_request_get_playerinfo(int from_id, int about_id)
 				id, g->cash,
 				g->factory[0], all_factories - g->factory[0],
 				g->prod, g->res);
+		sprintf(global.message_buffer_m,
+				"g %ld %d %d %d %d id=%d\n",
+				g->cash, g->factory[0], all_factories - g->factory[0],
+				g->prod, g->res, id);
 	}
 
-	send_dirrect(from_id, global.message_buffer);
+	send_dirrect(from_id, global.message_buffer, S_HUMAN);
+	send_dirrect(from_id, global.message_buffer_m, S_MACHINE);
 }
 
 void game_request_get_generalinfo(int from_id)
@@ -237,7 +252,7 @@ void game_request_get_generalinfo(int from_id)
 			convertation_price,
 			monthy.factory, monthy.res, monthy.prod
 			);
-	send_dirrect(from_id, global.message_buffer);
+	send_dirrect(from_id, global.message_buffer, S_HUMAN);
 }
 
 void game_request_get_marketinfo(int from_id)
@@ -259,15 +274,17 @@ void game_request_get_marketinfo(int from_id)
 			(int)(ms->prod_coeff * global.active_players),
 			global.active_players
 			);
-	send_dirrect(from_id, global.message_buffer);
+	sprintf(global.message_buffer_m, "g %d\n", global.current_market_state+1);
+	send_dirrect(from_id, global.message_buffer, S_HUMAN);
+	send_dirrect(from_id, global.message_buffer_m, S_MACHINE);
 }
 
 void game_request_help(int id)
 {
 	if(global.gamers[id] != NULL){
-		send_dirrect(id, help_info);
+		send_dirrect(id, help_info, S_HUMAN);
 	} else {
-		send_dirrect(id, help_info_for_bankrupts);
+		send_dirrect(id, help_info_for_bankrupts, S_HUMAN);
 	}
 }
 
@@ -277,9 +294,11 @@ void game_player_pay(int id, int money)
 		global.gamers[id]->cash -= money;
 		if(global.gamers[id]->cash < 0){
 			sprintf(global.message_buffer,
-					"Player [%d] goes bankrupt\n",
-					id);
-			send_broadcast(global.message_buffer);
+					"Player [%d] goes bankrupt\n", id);
+			sprintf(global.message_buffer_m,
+					"info b %d\n", id);
+			send_broadcast(global.message_buffer, S_HUMAN);
+			send_broadcast(global.message_buffer_m, S_BROADCAST);
 			game_kick(id);
 		}
 	}
@@ -433,21 +452,33 @@ void game_month_totals()
 				sprintf(global.message_buffer,
 						"You have produced %d production\n",
 						g->request.res2prod);
-				send_dirrect(id, global.message_buffer);
+				sprintf(global.message_buffer_m,
+						"info p %d\n",
+						g->request.res2prod);
+				send_dirrect(id, global.message_buffer, S_HUMAN);
+				send_dirrect(id, global.message_buffer_m, S_MACHINE);
 			}
 			if(g->request.prod_approved != 0){
 				g->prod -= g->request.prod_approved;
 				sprintf(global.message_buffer,
 						"Congrutilations! You have sold %d products\n",
 						g->request.prod_approved);
-				send_dirrect(id, global.message_buffer);
+				sprintf(global.message_buffer_m,
+						"info s %d\n",
+						g->request.prod_approved);
+				send_dirrect(id, global.message_buffer, S_HUMAN);
+				send_dirrect(id, global.message_buffer_m, S_MACHINE);
 			}
 			if(g->request.res_approved != 0){
 				g->res += g->request.res_approved;
 				sprintf(global.message_buffer,
 						"Congrutilations! You have bought %d resources\n",
 						g->request.res_approved);
-				send_dirrect(id, global.message_buffer);
+				sprintf(global.message_buffer_m,
+						"info b %d\n",
+						g->request.res_approved);
+				send_dirrect(id, global.message_buffer, S_HUMAN);
+				send_dirrect(id, global.message_buffer_m, S_MACHINE);
 			}
 			game_player_pay(id, game_player_total_month_spent(id));
 		}
@@ -476,7 +507,8 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 					"You can't take such small bid. "
 					"The minimal price for resource is %d\n",
 					ms->res_price);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 		} else {
 			req->res_value = value;
 			req->res_price = price;
@@ -484,7 +516,8 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 					"Your current bid is %d resources for $%d per one\n"
 					"You can change your request if you want\n",
 					value, price);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "g\n", S_MACHINE);
 		}
 	} else { /* type == PRODUCTION */
 		if(ms->prod_price < price){
@@ -492,15 +525,16 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 					"You can't take such big bid. "
 					"The maximal price for production is %d\n",
 					ms->prod_price);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 		} else
 		if(global.gamers[id]->prod < value){
 			sprintf(global.message_buffer,
-					"You can't sell production that do don't have. "
+					"You can't sell production that you don't have. "
 					"Your avaible production quantity is %d.\n",
 					global.gamers[id]->prod);
-			send_dirrect(id, global.message_buffer);
-
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 		} else {
 			req->prod_value = value;
 			req->prod_price = price;
@@ -508,7 +542,8 @@ void game_request_auction_bid(int id, enum auction_type type, int value, int pri
 					"Your current bid is %d production for $%d per one\n"
 					"You can change your request if you want\n",
 					value, price);
-			send_dirrect(id,  global.message_buffer);
+			send_dirrect(id,  global.message_buffer, S_HUMAN);
+			send_dirrect(id, "g\n", S_MACHINE);
 		}
 	}
 
@@ -533,7 +568,8 @@ void game_request_build_factory(int id, int quantity)
 				"You requested to build %d factories. "
 				"It will be avaible in %d months.\n",
 				quantity, FACTORY_BUILD_TIME);
-		send_dirrect(id, global.message_buffer);
+		send_dirrect(id, global.message_buffer, S_HUMAN);
+		send_dirrect(id, "g\n", S_MACHINE);
 		game_player_pay(id, factory_price * quantity);
 	}
 }
@@ -549,7 +585,8 @@ void game_request_convert_resource(int id, int quantity)
 					"You requested to produce %d production. "
 					"It will be avaible on the next month.\n",
 					quantity);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "g\n", S_MACHINE);
 			game_player_pay(id, convertation_price * quantity);
 		} else
 		if(p->res < quantity){
@@ -557,13 +594,15 @@ void game_request_convert_resource(int id, int quantity)
 					"Can't produce to much production. "
 					"Not enough of resource (%d left)\n",
 					p->res);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 		} else {
 			sprintf(global.message_buffer,
 					"Can't produce to much production. "
 					"Not enough of active non-working factories (%d left)\n",
 					p->factory[0] - p->request.res2prod);
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 		}
 	}
 }
@@ -576,11 +615,14 @@ void game_request_finish_turn(int id)
 			global.finished_players++;
 			sprintf(global.message_buffer,
 					"The player[%d] has finished the turn\n", id);
-			send_broadcast(global.message_buffer);
+			sprintf(global.message_buffer_m,
+					"info turn %d\n", id);
+			send_broadcast(global.message_buffer, S_HUMAN);
+			send_broadcast(global.message_buffer_m, S_BROADCAST);
 		} else {
 			sprintf(global.message_buffer,
 					"Heh. You can't finish the turn twice.\n");
-			send_dirrect(id, global.message_buffer);
+			send_dirrect(id, global.message_buffer, S_HUMAN);
 		}
 	}
 	if(global.finished_players >= global.active_players){
@@ -596,14 +638,15 @@ int game_state_update()
 	if(global.active_players <= 1){
 		for(id = 0; id < global.total_players; id++){
 			if(global.gamers[id] != NULL){
-				send_dirrect(id, "You WIN!\n");
+				send_dirrect(id, "You WIN!\n", S_HUMAN);
+				send_dirrect(id, "info win\n", S_MACHINE);
 			}
 		}
 		return -1;
 	}
 	if(global.active_players <= global.finished_players){
-		send_broadcast(
-				"All the turns finished. It's time to look at the stats.\n");
+		send_broadcast(	"All the turns finished. It's time to look at the stats.\n", S_HUMAN);
+		send_broadcast(	"info turns\n", S_BROADCAST);
 		game_auction_totals();
 		game_month_totals();
 		game_new_month();
@@ -629,7 +672,8 @@ int game_command(int id, char * command)
 			word = tokens->token->word;
 			break;
 		default:
-			send_dirrect(id, "Unknown command\n");
+			send_dirrect(id, "Unknown command\n", S_HUMAN);
+			send_dirrect(id, "w\n", S_MACHINE);
 			game_request_help(id);
 		case 0:
 			destroy_tokens(tokens);
@@ -643,17 +687,17 @@ int game_command(int id, char * command)
 		global.gc_counter++;
 		sprintf(global.message_buffer,
 				"Global counter increased. Current value is %d\n", global.gc_counter);
-		send_broadcast(global.message_buffer);
+		send_broadcast(global.message_buffer, S_HUMAN);
 	} else
 	if(!strcmp(word, "gcdec")){
 		global.gc_counter--;
 		sprintf(global.message_buffer,
 				"Global counter increased. Current value is %d\n", global.gc_counter);
-		send_broadcast(global.message_buffer);
+		send_broadcast(global.message_buffer, S_HUMAN);
 	} else
 	if(command[0] == '/'){
-		sprintf(global.message_buffer, "Chat::Player[%d] says::%s", id, command+1);
-		send_broadcast(global.message_buffer);
+		sprintf(global.message_buffer, "Player[%d]>> %s", id, command+1);
+		send_broadcast(global.message_buffer, U_BROADCAST);
 	}else
 
 	if(!strcmp(word, "market")){
@@ -688,15 +732,15 @@ int game_command(int id, char * command)
 		if(!strcmp(word, "sell") && cnt == 3){
 			game_request_auction_bid(id, PRODUCTION, val, price);
 		} else {
-			send_dirrect(id, "Unknown command\n");
+			send_dirrect(id, "Unknown command\n", S_HUMAN);
 			game_request_help(id);
 		}
 	} else { /* if user can't play */
-		send_dirrect(id, "Unknown command\n");
+		send_dirrect(id, "Unknown command\n", S_HUMAN);
 		game_request_help(id);
 	}
 
-	send_dirrect(id, ">> ");
+	//send_dirrect(id, ">> ");
 
 
 	destroy_tokens(tokens);
